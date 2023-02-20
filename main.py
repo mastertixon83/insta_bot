@@ -119,6 +119,7 @@ def parse_subscribers(url, conn):
     ### Сбор подписчиков
     all_urls_div = driver.find_elements(By.CLASS_NAME, '_ab8w._ab94._ab97._ab9f._ab9k._ab9p._ab9-._aba8._abcm')
 
+
     items = 12
     i = 1
     while i <= loops_count:

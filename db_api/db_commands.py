@@ -24,9 +24,7 @@ class DBCommands():
         args = data_tuple
         command = (
             sql.SQL(
-                'INSERT INTO users (username, nickname, url) VALUES {}')
-            .format(sql.SQL(',').join(map(sql.Literal, data_tuple))
-                    )
+                f"INSERT INTO users (username, nickname, url) VALUES {sql.SQL(',').join(map(sql.Literal, data_tuple))}")
         )
         return command
 
