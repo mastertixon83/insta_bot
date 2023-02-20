@@ -6,6 +6,7 @@ create table if not exists users
     url text UNIQUE,
     username text,
     nickname text,
+    followers_count bigint default 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     follow boolean default false,
     unfollow boolean default false

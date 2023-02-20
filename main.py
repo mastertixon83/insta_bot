@@ -1,3 +1,5 @@
+import random
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -91,59 +93,80 @@ def auth(login, password):
             for cookie in pickle.load(file=file):
                 driver.add_cookie(cookie)
 
-        time.sleep(5)
         driver.refresh()
         print("refresh page")
-        time.sleep(5)
+        time.sleep(random.randrange(5, 7))
         driver.execute_script("document.getElementsByClassName('_a9-- _a9_1')[0].click()")
-        time.sleep(3)
+        time.sleep(random.randrange(3, 6))
 
 
 def parse_subscribers(url, conn):
+    # TODO: Собрал, Сохранил, Проскролил
     driver.get(url=url)
-    time.sleep(4)
+    time.sleep(random.randrange(4, 7))
+
+    ### Число подписчиков у аккаунта
     follower_count = driver.find_element(By.XPATH,
                                          "/html/body/div[2]/div/div/div/div[1]/div/div/div/div[1]/div[1]/div[2]/section/main/div/header/section/ul/li[2]/a/div").find_element(
         By.CLASS_NAME, "_ac2a").get_property('title').replace("\xa0", "")
 
-    loops_count = int(follower_count) // 12
+    # loops_count = int(follower_count) // 12
+    loops_count = 500
+    ostatok = int(follower_count) % 12
+    if ostatok > 0: loops_count += 1
     followers = []
 
-    while True:
+    ### Сбор подписчиков
+    all_urls_div = driver.find_elements(By.CLASS_NAME, '_ab8w._ab94._ab97._ab9f._ab9k._ab9p._ab9-._aba8._abcm')
+
+    items = 12
+    i = 1
+    while i <= loops_count:
+        # Собрать подписчиков
+        all_urls_div = driver.find_elements(By.CLASS_NAME, '_ab8w._ab94._ab97._ab9f._ab9k._ab9p._ab9-._aba8._abcm')
+
+        for item in all_urls_div[items - 12:items]:
+            try:
+                name = item.find_element(By.CLASS_NAME, "_aacl._aaco._aacu._aacy._aada").text
+            except Exception as ex:
+                name = "None"
+
+            account = item.find_element(By.CLASS_NAME, "_ab8y._ab94._ab97._ab9f._ab9k._ab9p._abcm").text
+            link = item.find_element(By.TAG_NAME, "a").get_property("href")
+
+            followers.append(
+                {
+                    "username": name,
+                    "nickname": account,
+                    "url": link,
+                }
+            )
+
+        print(followers)
+        i += 1
+        items += 12
+
+        ###Сохранение ссылки в БД
+        command = db.add_new_user_tuple(followers)
+
+        with conn.cursor() as cur:
+            try:
+                cur.execute(command)
+                followers.clear()
+                print(f"Сохранена итерация {i - 1} {url}")
+            except Exception as _ex:
+                print(f"1{_ex}")
+
+        ### Скролинг ниже
         try:
             load_more = driver.find_element(By.CLASS_NAME, "_aanq")
             actions = ActionChains(driver)
             actions.move_to_element(load_more).perform()
             time.sleep(3)
         except:
-            print('Done')
+            print('Scrolling complete')
             time.sleep(3)
-            all_urls_div = driver.find_elements(By.CLASS_NAME, '_ab8w._ab94._ab97._ab9f._ab9k._ab9p._ab9-._aba8._abcm')
-            #
-            # all_urls_div = driver.find_elements(By.XPATH, "//div[@class='_ab8w  _ab94 _ab97 _ab9f _ab9k _ab9p  _ab9- _aba8 _abcm']/div")
-
-            for item in all_urls_div:
-                try:
-                    name = item.find_element(By.CLASS_NAME, "_aacl._aaco._aacu._aacy._aada").text
-                except Exception as ex:
-                    name = "None"
-
-                account = item.find_element(By.CLASS_NAME, "_ab8y._ab94._ab97._ab9f._ab9k._ab9p._abcm").text
-                link = item.find_element(By.TAG_NAME, "a").get_property("href")
-
-                # Сохранение ссылки в БД
-                sql = db.add_new_user(username=name, nickname=account, url=link)
-                command = sql[0]
-                args = sql[1]
-                with conn.cursor() as cur:
-                    print(sql)
-                    cur.execute(command, args)
-                    record_id = cur.fetchone()
-                    print(f"Запись добавлена")
             break
-
-    # /html/body/div[2]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div/div/div/div/div[2]/div/div/div[2]/div[2]
-    # поле с сылкой на подписчика aria-labelledby
 
 
 def follow(conn, count):
@@ -192,8 +215,7 @@ def unfollow(conn, count):
 
             # Подписка
             follows_btn = driver.find_element(By.XPATH,
-                                             "/html/body/div[2]/div/div/div/div[1]/div/div/div/div[1]/div[1]/div[2]/section/main/div/header/section/div[1]/div[1]/div/div[1]/button")
-
+                                              "/html/body/div[2]/div/div/div/div[1]/div/div/div/div[1]/div[1]/div[2]/section/main/div/header/section/div[1]/div[1]/div/div[1]/button")
 
             follows_btn.click()
             time.sleep(4)
@@ -212,19 +234,19 @@ def main():
     conn, cur = create_db()
 
     links = load_data_from_json("links/follow.json")
-
     try:
+        pass
         driver.get(url=url)
-        time.sleep(5)
+        time.sleep(random.randrange(5, 7))
         login = "pc_helper"
         password = "gft654gfhgf"
 
         auth(login=login, password=password)
         print("auth complete")
 
-        # # Сбор подписчиков с аккаунта
-        # for link in links[:1]:
-        #     parse_subscribers(url=f"{link['URL']}followers/", conn=conn)
+        # Сбор подписчиков с аккаунта
+        for link in links[:2]:
+            parse_subscribers(url=f"{link['URL']}followers/", conn=conn)
 
         # # Подписка
         # follow(conn=conn, count=3)
